@@ -1,0 +1,26 @@
+# 점 디렉토리 (CI 설정 제외)
+.*/
+!.github/
+
+# Rust 빌드 산출물
+/target/
+**/*.rs.bk
+*.pdb
+
+# 설치 파일 출력
+/dist/
+
+# Python 캐시 (tools/)
+__pycache__/
+*.py[cod]
+
+# 편집기 / OS
+*.swp
+*~
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# 로그 / 임시 파일
+*.log
+*.tmp
