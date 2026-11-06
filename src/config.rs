@@ -231,7 +231,7 @@ impl Default for Config {
             mouse: MouseHotkey::default(),
             keyboard: KeyHotkey::default(),
             text_method: TextMethod::Auto,
-            auto_copy_selection: false,
+            auto_copy_selection: true,
             unicode_spaces_to_ascii: false,
             non_resizable: false,
             font_name: String::new(),
@@ -357,6 +357,7 @@ mod tests {
         assert_eq!(cfg.mouse, MouseHotkey { ctrl: true, alt: false, shift: true, button: MouseButton::Left });
         assert_eq!(cfg.mouse.display(), "Ctrl+Shift+왼쪽 클릭");
         assert!(!cfg.keyboard.enabled());
+        assert!(cfg.auto_copy_selection);
         assert_eq!(cfg.web_buttons, vec![WebButton::google()]);
         assert!(cfg.validate().is_ok());
     }
