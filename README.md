@@ -4,7 +4,7 @@
 
 <h1 align="center">GetText</h1>
 
-<p align="center">화면의 어떤 텍스트든 클릭 한 번으로 꺼내 복사하는 Windows 트레이 프로그램<br>v1.0.1</p>
+<p align="center">화면의 어떤 텍스트든 클릭 한 번으로 꺼내 복사하는 Windows 트레이 프로그램<br>v1.0.2</p>
 
 ---
 
