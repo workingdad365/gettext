@@ -192,6 +192,58 @@ fn msaa(pt: POINT) -> AccInfo {
     info
 }
 
+fn point_inside(pt: POINT, rect: &RECT) -> bool {
+    pt.x >= rect.left && pt.x < rect.right && pt.y >= rect.top && pt.y < rect.bottom
+}
+
+fn element_parts(element: &IUIAutomationElement) -> Vec<String> {
+    let mut parts = Vec::new();
+    unsafe {
+        let name = element.CurrentName().ok().map(|b| b.to_string());
+        if let Some(n) = &name {
+            push_part(&mut parts, n);
+        }
+        if let Ok(value) = element.GetCurrentPropertyValue(UIA_ValueValuePropertyId) {
+            let value = Var(value).as_string();
+            if let Some(v) = &value
+                && value != name
+            {
+                push_part(&mut parts, v);
+            }
+        }
+    }
+    parts
+}
+
+/// 좌표를 포함하는 가장 깊은 자식 요소 조회
+/// Chromium 의 비활성화된 입력란은 ElementFromPoint 가 상위 그룹을 반환하는 경우가 있음
+fn descendant_at_point(
+    walker: &windows::Win32::UI::Accessibility::IUIAutomationTreeWalker,
+    root: &IUIAutomationElement,
+    pt: POINT,
+) -> Option<IUIAutomationElement> {
+    let mut current = root.clone();
+    let mut found = false;
+    for _ in 0..64 {
+        let Ok(mut child) = (unsafe { walker.GetFirstChildElement(&current) }) else { break };
+        let mut next = None;
+        loop {
+            let contains = unsafe { child.CurrentBoundingRectangle().ok() }
+                .is_some_and(|rect| point_inside(pt, &rect));
+            if contains {
+                next = Some(child.clone());
+                break;
+            }
+            let Ok(sibling) = (unsafe { walker.GetNextSiblingElement(&child) }) else { break };
+            child = sibling;
+        }
+        let Some(child) = next else { break };
+        current = child;
+        found = true;
+    }
+    found.then_some(current)
+}
+
 /// UIA 를 쓸 수 없으면 None
 fn uia(pt: POINT) -> Option<AccInfo> {
     let automation: IUIAutomation = unsafe { CoCreateInstance(&CUIAutomation, None, CLSCTX_INPROC_SERVER) }.ok()?;
@@ -206,20 +258,15 @@ fn uia(pt: POINT) -> Option<AccInfo> {
         let Ok(walker) = automation.CreateTreeWalker(&condition) else { return Some(info) };
         let Ok(pid) = element.CurrentProcessId() else { return Some(info) };
 
+        if element_parts(&element).is_empty()
+            && let Some(descendant) = descendant_at_point(&walker, &element, pt)
+            && !element_parts(&descendant).is_empty()
+        {
+            element = descendant;
+        }
+
         loop {
-            let mut parts = Vec::new();
-            let name = element.CurrentName().ok().map(|b| b.to_string());
-            if let Some(n) = &name {
-                push_part(&mut parts, n);
-            }
-            if let Ok(value) = element.GetCurrentPropertyValue(UIA_ValueValuePropertyId) {
-                let value = Var(value).as_string();
-                if let Some(v) = &value
-                    && value != name
-                {
-                    push_part(&mut parts, v);
-                }
-            }
+            let parts = element_parts(&element);
             if !parts.is_empty() {
                 info.parts = parts;
                 break;
@@ -275,6 +322,17 @@ mod tests {
         assert!(!strictly_inside(&r(0, 0, 10, 10), &r(0, 0, 10, 10)));
         assert!(!strictly_inside(&r(-1, 0, 5, 5), &r(0, 0, 10, 10)));
         assert!(strictly_inside(&r(2, 2, 3, 3), &r(0, 0, 10, 10)));
+    }
+
+    #[test]
+    fn point_inside_check() {
+        let rect = r(10, 20, 30, 40);
+        assert!(point_inside(POINT { x: 10, y: 20 }, &rect));
+        assert!(point_inside(POINT { x: 29, y: 39 }, &rect));
+        assert!(!point_inside(POINT { x: 30, y: 39 }, &rect));
+        assert!(!point_inside(POINT { x: 29, y: 40 }, &rect));
+        assert!(!point_inside(POINT { x: 9, y: 20 }, &rect));
+        assert!(!point_inside(POINT { x: 10, y: 19 }, &rect));
     }
 
     #[test]
